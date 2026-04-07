@@ -1,0 +1,38 @@
+Return-Path: <alice@gmail.com>
+Received: from mail-yw1-f201.google.com (mail-yw1-f201.google.com [209.85.128.201])
+        by mx.example.com with ESMTPS id abc123
+        for <bob@example.com>; Thu, 20 Feb 2026 10:00:00 -0500
+Authentication-Results: mx.example.com;
+       dkim=pass header.i=@gmail.com header.s=20210112 header.b=abcXYZ;
+       spf=pass (mx.example.com: domain of alice@gmail.com designates 209.85.128.201 as permitted sender) smtp.mailfrom=alice@gmail.com;
+       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20210112;
+        h=from:to:subject:date:message-id;
+        bh=abc123def456=;
+        b=abcXYZ123/validDKIMsignature==
+Received-SPF: pass (mx.example.com: domain of alice@gmail.com designates 209.85.128.201 as permitted sender)
+        receiver=mx.example.com; client-ip=209.85.128.201;
+        envelope-from=<alice@gmail.com>
+MIME-Version: 1.0
+From: Alice Johnson <alice@gmail.com>
+To: Bob Smith <bob@example.com>
+Reply-To: Alice Johnson <alice@gmail.com>
+Subject: Meeting notes from today
+Date: Thu, 20 Feb 2026 10:00:00 -0500
+Message-ID: <CABcDeFgHiJkLmN@mail.gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+
+Hi Bob,
+
+Just wanted to share the notes from today's team meeting. Everything went well
+and we covered the Q1 roadmap items.
+
+Let me know if you have any questions!
+
+Best,
+Alice
+
+--
+Alice Johnson | Product Manager
+alice@gmail.com

