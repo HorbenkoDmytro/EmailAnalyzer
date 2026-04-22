@@ -19,6 +19,10 @@ class Attachment:
     filename: str
     content_type: str
     size_bytes: int
+    # Decoded raw bytes — kept on the dataclass so the attachments module can
+    # hash and (optionally) upload the file without re-walking the MIME tree.
+    # Excluded from repr to avoid dumping binary blobs into logs.
+    payload: bytes = field(default=b"", repr=False)
 
 
 @dataclass
@@ -89,6 +93,22 @@ def parse_email_string(raw_email: str) -> EmailData:
         EmailData with all relevant fields populated.
     """
     msg: Message = email.message_from_string(raw_email, policy=email.policy.compat32)
+    return _extract_data(msg)
+
+
+def parse_email_bytes(raw_email: bytes) -> EmailData:
+    """Parse raw email bytes (used by the engine when bytes are already in hand).
+
+    Args:
+        raw_email: Raw email content as bytes (e.g. from an HTTP upload).
+
+    Returns:
+        EmailData with all relevant fields populated.
+    """
+    try:
+        msg: Message = email.message_from_bytes(raw_email, policy=email.policy.compat32)
+    except Exception as exc:
+        raise ValueError(f"Failed to parse email bytes: {exc}") from exc
     return _extract_data(msg)
 
 
@@ -167,6 +187,7 @@ def _extract_body_parts(msg: Message) -> tuple[str, str, list[Attachment]]:
                         filename=filename,
                         content_type=content_type,
                         size_bytes=len(payload),
+                        payload=payload,
                     )
                 )
             elif content_type == "text/plain":
