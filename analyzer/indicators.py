@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Optional
 
 from .auth_checks import AuthCheckResult, AuthStatus
+from .attachments import AttachmentAnalysisResult, AttachmentReport
 from .parser import EmailData
 from .url_extractor import URLExtractionResult, SUSPICIOUS_ATTACHMENT_EXTENSIONS
 
@@ -80,6 +81,7 @@ def score_email(
     email_data: EmailData,
     auth_result: AuthCheckResult,
     url_result: URLExtractionResult,
+    attachment_result: Optional[AttachmentAnalysisResult] = None,
 ) -> ScoringResult:
     """Evaluate all indicators and compute the overall risk score.
 
@@ -87,6 +89,10 @@ def score_email(
         email_data: Parsed email.
         auth_result: SPF/DKIM/DMARC results.
         url_result: Extracted and analysed URLs.
+        attachment_result: Output from :func:`analyzer.attachments.analyze_attachments`.
+            When None, a minimal extension-based fallback is used (kept for
+            backward compatibility with code that doesn't pre-analyze
+            attachments).
 
     Returns:
         ScoringResult with per-indicator hits and aggregate score.
@@ -97,7 +103,10 @@ def score_email(
     hits.extend(_check_header_indicators(email_data))
     hits.extend(_check_url_indicators(url_result))
     hits.extend(_check_content_indicators(email_data))
-    hits.extend(_check_attachment_indicators(email_data))
+    if attachment_result is not None:
+        hits.extend(_check_attachment_report_indicators(attachment_result))
+    else:
+        hits.extend(_check_attachment_indicators(email_data))
 
     total = sum(h.weight for h in hits)
     risk_level = _score_to_risk(total)
@@ -356,6 +365,7 @@ def _check_content_indicators(email_data: EmailData) -> list[IndicatorHit]:
 
 
 def _check_attachment_indicators(email_data: EmailData) -> list[IndicatorHit]:
+    """Fallback used when no AttachmentAnalysisResult is available."""
     hits = []
     for att in email_data.attachments:
         ext = "." + att.filename.rsplit(".", 1)[-1].lower() if "." in att.filename else ""
@@ -366,6 +376,55 @@ def _check_attachment_indicators(email_data: EmailData) -> list[IndicatorHit]:
                 detail=f"Attachment '{att.filename}' ({att.content_type}) has a high-risk extension '{ext}'.",
                 category="attachment",
             ))
+    return hits
+
+
+def _check_attachment_report_indicators(result: AttachmentAnalysisResult) -> list[IndicatorHit]:
+    """Per-attachment indicators using the rich report from the attachments module."""
+    hits: list[IndicatorHit] = []
+    for r in result.attachments:
+        if r.has_suspicious_extension:
+            hits.append(IndicatorHit(
+                name=f"Suspicious Attachment: {r.filename}",
+                weight=8,
+                detail=(
+                    f"Attachment '{r.filename}' ({r.content_type}) has a high-risk "
+                    f"extension '{r.extension}'. SHA-256: {r.sha256[:16]}…"
+                ),
+                category="attachment",
+            ))
+        if r.has_double_extension:
+            hits.append(IndicatorHit(
+                name=f"Double-Extension Attachment: {r.filename}",
+                weight=7,
+                detail=(
+                    f"Filename '{r.filename}' uses a double extension to disguise an "
+                    "executable as a benign document — a common social-engineering trick."
+                ),
+                category="attachment",
+            ))
+        if r.vt_result and not r.vt_result.get("error"):
+            mal = r.vt_result.get("malicious", 0)
+            sus = r.vt_result.get("suspicious", 0)
+            if mal > 0:
+                hits.append(IndicatorHit(
+                    name=f"VirusTotal Malicious Attachment: {r.filename}",
+                    weight=10,
+                    detail=(
+                        f"Attachment '{r.filename}' (sha256 {r.sha256[:16]}…) flagged "
+                        f"malicious by {mal} VT engine(s)."
+                    ),
+                    category="attachment",
+                ))
+            elif sus > 0:
+                hits.append(IndicatorHit(
+                    name=f"VirusTotal Suspicious Attachment: {r.filename}",
+                    weight=6,
+                    detail=(
+                        f"Attachment '{r.filename}' flagged suspicious by {sus} VT engine(s)."
+                    ),
+                    category="attachment",
+                ))
     return hits
 
 
