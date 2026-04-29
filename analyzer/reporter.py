@@ -26,7 +26,9 @@ from reportlab.platypus import (
 )
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
+from .attachments import AttachmentAnalysisResult
 from .auth_checks import AuthCheckResult, AuthStatus
+from .engine import IntegrityInfo
 from .indicators import ScoringResult, RiskLevel
 from .parser import EmailData
 from .url_extractor import URLExtractionResult
@@ -71,6 +73,8 @@ def generate_pdf_report(
     auth_result: AuthCheckResult,
     url_result: URLExtractionResult,
     scoring_result: ScoringResult,
+    attachment_result: Optional[AttachmentAnalysisResult] = None,
+    integrity: Optional[IntegrityInfo] = None,
 ) -> Path:
     """Generate a PDF report and save it to output_path.
 
@@ -80,6 +84,8 @@ def generate_pdf_report(
         auth_result: SPF/DKIM/DMARC results.
         url_result: URL extraction and analysis results.
         scoring_result: Weighted indicator scoring results.
+        attachment_result: Optional attachment analysis (hashes + VT verdicts).
+        integrity: Optional original-file integrity info to render on the cover.
 
     Returns:
         Path to the generated PDF file.
@@ -99,9 +105,11 @@ def generate_pdf_report(
     styles = _build_styles()
     story = []
 
-    _add_cover(story, styles, email_data, scoring_result)
+    _add_cover(story, styles, email_data, scoring_result, integrity)
     _add_auth_section(story, styles, auth_result)
     _add_url_section(story, styles, url_result)
+    if attachment_result is not None:
+        _add_attachment_section(story, styles, attachment_result)
     _add_indicators_section(story, styles, scoring_result)
     _add_recommendations(story, styles, scoring_result)
 
@@ -155,7 +163,8 @@ def _build_styles() -> dict:
 # Cover page
 # ---------------------------------------------------------------------------
 
-def _add_cover(story, styles, email_data: EmailData, scoring: ScoringResult):
+def _add_cover(story, styles, email_data: EmailData, scoring: ScoringResult,
+               integrity: Optional[IntegrityInfo] = None):
     now = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     risk_colour = RISK_COLOURS[scoring.risk_level]
 
@@ -201,6 +210,32 @@ def _add_cover(story, styles, email_data: EmailData, scoring: ScoringResult):
     ]))
     story.append(badge_table)
     story.append(Spacer(1, 0.5 * cm))
+
+    if integrity is not None:
+        integrity_rows = [
+            ["Original file", _safe(integrity.source_filename)],
+            ["Size", f"{integrity.size_bytes:,} bytes"],
+            ["MD5", integrity.md5],
+            ["SHA-1", integrity.sha1],
+            ["SHA-256", integrity.sha256],
+            ["Analyzed at", integrity.analyzed_at],
+        ]
+        integrity_table = Table(integrity_rows, colWidths=[3.5 * cm, 13 * cm])
+        integrity_table.setStyle(TableStyle([
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTNAME", (1, 2), (1, 4), "Courier"),
+            ("BACKGROUND", (0, 0), (0, -1), COLOUR_LIGHT),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        story.append(Paragraph("File Integrity", styles["h2"]))
+        story.append(integrity_table)
+        story.append(Spacer(1, 0.3 * cm))
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +293,49 @@ def _add_url_section(story, styles, url_result: URLExtractionResult):
     url_table = Table(rows, colWidths=[5.5 * cm, 3.5 * cm, 7.5 * cm])
     url_table.setStyle(_standard_table_style(header=True))
     story.append(url_table)
+    story.append(Spacer(1, 0.5 * cm))
+
+
+# ---------------------------------------------------------------------------
+# Attachments section
+# ---------------------------------------------------------------------------
+
+def _add_attachment_section(story, styles, attachments: AttachmentAnalysisResult):
+    story.append(Paragraph(
+        f"Attachments  ({attachments.total_count} found, {attachments.suspicious_count} suspicious)",
+        styles["h2"],
+    ))
+    story.append(HRFlowable(width="100%", thickness=1, color=COLOUR_LIGHT, spaceAfter=8))
+
+    if not attachments.attachments:
+        story.append(Paragraph("No attachments present.", styles["body"]))
+        return
+
+    rows = [["Filename", "Type", "Size", "Hashes", "Flags / VT"]]
+    for a in attachments.attachments:
+        hash_block = (
+            f"MD5: {a.md5 or '—'}<br/>"
+            f"SHA1: {a.sha1 or '—'}<br/>"
+            f"SHA256: {a.sha256 or '—'}"
+        )
+        flag_text = "; ".join(a.flags) if a.flags else "None"
+        if a.vt_result and not a.vt_result.get("error") and not a.vt_result.get("not_found"):
+            mal = a.vt_result.get("malicious", 0)
+            sus = a.vt_result.get("suspicious", 0)
+            flag_text += f"<br/><i>VT: {mal} malicious, {sus} suspicious</i>"
+        elif a.vt_result and a.vt_result.get("not_found"):
+            flag_text += "<br/><i>VT: hash not in database</i>"
+        rows.append([
+            Paragraph(_safe(a.filename), styles["mono"]),
+            Paragraph(_safe(a.content_type), styles["small"]),
+            Paragraph(f"{a.size_bytes:,} B", styles["small"]),
+            Paragraph(hash_block, styles["mono"]),
+            Paragraph(flag_text, styles["detail"]),
+        ])
+
+    att_table = Table(rows, colWidths=[3.2 * cm, 2.5 * cm, 1.3 * cm, 5.5 * cm, 4 * cm])
+    att_table.setStyle(_standard_table_style(header=True))
+    story.append(att_table)
     story.append(Spacer(1, 0.5 * cm))
 
 
