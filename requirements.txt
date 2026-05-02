@@ -5,6 +5,13 @@ reportlab>=4.0
 rich>=13.0
 python-dotenv>=1.0
 
+# API service
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.5
+python-multipart>=0.0.9
+
 # Dev / testing
 pytest>=7.4
 pytest-cov>=4.1
+httpx>=0.27
