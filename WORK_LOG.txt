@@ -1,0 +1,305 @@
+===============================================================================
+EmailAnalyzer — Session Work Log
+Date: 2026-05-04
+Branch: claude/vigilant-babbage-ad091c
+Worktree: C:\Uni\Mag2Sem\КР\EmailAnalyzer\.claude\worktrees\vigilant-babbage-ad091c
+===============================================================================
+
+OVERALL GOAL
+------------
+Bring the project up to the technical-spec level by:
+  1. Establishing a stable analyzer engine with proper configuration and
+     local-only mode (Task 1 from the user's plan).
+  2. Building out attachment analysis to TS level — hashes + VirusTotal
+     hash lookup + optional file upload + dedicated indicators (Task 2).
+  3. Adding a FastAPI service on top of the engine (Task 7).
+  4. Replacing the test sample emails with completely different content
+     while keeping all 70 tests passing.
+
+
+===============================================================================
+PART 1 — Codebase analysis (orientation)
+===============================================================================
+
+Read every existing source file to map the pipeline:
+  main.py          — CLI orchestrating parser → auth → urls → VT → scoring → PDF
+  analyzer/parser.py        — EmailData dataclass, MIME walking
+  analyzer/auth_checks.py   — SPF/DKIM/DMARC via headers + dnspython
+  analyzer/url_extractor.py — URL heuristics (IP, shortener, TLD, punycode, mismatch)
+  analyzer/indicators.py    — weighted scoring, RiskLevel mapping
+  analyzer/threat_intel.py  — VirusTotal v3 client (URL only)
+  analyzer/reporter.py      — ReportLab PDF report
+  tests/                    — 70 pytest cases across 4 files
+
+Status before changes: working tree clean, branch on commit 64ca4f5.
+
+
+===============================================================================
+PART 2 — Task 1: Engine + Settings + integrity hash + offline mode
+===============================================================================
+
+NEW FILES
+  analyzer/settings.py
+    - Settings dataclass holding every runtime tunable.
+    - Settings.from_env() loads VT_API_KEY and ANALYZER_* env vars.
+    - Derived properties: dns_active, vt_active, vt_url_active,
+      vt_attachment_active.
+    - summary() returns a non-secret dict for inclusion in reports.
+
+  analyzer/engine.py
+    - Public entry points: analyze_email_file(path, settings, progress=...)
+      and analyze_email_bytes(raw, settings, source_filename=..., progress=...).
+    - IntegrityInfo dataclass: source_filename, size_bytes, md5, sha1,
+      sha256, analyzed_at (ISO-8601 UTC). Computed BEFORE parsing so even
+      a parse failure preserves the file fingerprint.
+    - AnalysisResult dataclass aggregates all sub-results plus a
+      settings_summary dict.
+    - Lazy-imports threat_intel only on the VT path so the offline path
+      doesn't need `requests` at all.
+
+CHANGED FILES
+  analyzer/parser.py
+    - Attachment dataclass gained `payload: bytes` (with field(repr=False))
+      so the attachments module can hash and optionally upload it.
+    - Added parse_email_bytes(raw_bytes) entry point — used by the API
+      and by engine.analyze_email_bytes.
+
+  analyzer/auth_checks.py
+    - run_auth_checks gained `dns_enabled` keyword argument
+      (backward-compatible default = True so existing 1-arg test call
+      still works).
+    - _check_spf and _check_dmarc skip DNS lookups when dns_enabled=False.
+    - DMARC now returns AuthStatus.UNKNOWN (not MISSING) when DNS is off
+      so an offline run doesn't artificially inflate the score.
+
+  analyzer/__init__.py
+    - Replaced the empty module with a lazy public surface:
+      AnalysisResult, IntegrityInfo, Settings, analyze_email_bytes,
+      analyze_email_file via __getattr__.
+    - Lazy loading was important: an eager `from .engine import ...`
+      pulled `requests` into the import graph, breaking offline tests.
+
+  main.py (CLI)
+    - Fully rewritten as a thin shell over the engine.
+    - New flags:
+        --no-external   — disable DNS + VT
+        --local-only    — alias of --no-external
+        --no-vt         — disable only VirusTotal
+        --vt-upload     — upload unknown attachment hashes to VT
+        --no-pdf        — skip PDF report generation
+    - Renders new sections in the terminal: File Integrity panel,
+      Attachments table, mode label.
+    - JSON output now includes integrity, settings summary, attachment
+      hashes & VT verdicts.
+
+
+===============================================================================
+PART 3 — Task 2: Attachment analysis
+===============================================================================
+
+NEW FILE
+  analyzer/attachments.py
+    - AttachmentReport dataclass: filename, content_type, size_bytes,
+      md5/sha1/sha256, extension, has_suspicious_extension,
+      has_double_extension, flags, vt_result, vt_uploaded.
+    - AttachmentAnalysisResult: list of reports + counts.
+    - analyze_attachments(email_data, settings, progress=...) — entry
+      point used by the engine.
+    - Heuristic flags:
+        * High-risk extension (.exe, .scr, macro Office formats, etc.)
+        * Double extension trick (invoice.pdf.exe)
+        * Content-Type vs extension mismatch (PDF served as image/png, …)
+    - VirusTotal enrichment:
+        * Always tries hash lookup first (consumes much less quota).
+        * If VT reports not_found AND vt_upload_unknown_files is on AND
+          payload bytes are present → falls back to multipart upload via
+          threat_intel.submit_file().
+        * Sets `vt_uploaded` flag on the report when an upload succeeded.
+    - Lazy import of threat_intel (same offline-friendly pattern as the
+      engine).
+
+CHANGED FILE
+  analyzer/threat_intel.py
+    - VTResult now uses `resource` (URL or hash) with a backward-compat
+      `url` property. Adds a `not_found` flag and `to_dict()` helper.
+    - Added check_file_hash(file_hash, api_key, ...) that hits
+      /files/{id}, returns VTResult with not_found=True on 404.
+    - Added submit_file(file_bytes, filename, api_key, ...) that uploads
+      via /files (multipart) and polls /analyses/{id} until status
+      becomes "completed". Falls through to a placeholder VTResult on
+      pending/timeout with a permalink for manual follow-up.
+    - All public functions accept tuning kwargs (free_tier_delay,
+      max_retries, request_timeout) so Settings can drive them.
+
+CHANGED FILE
+  analyzer/indicators.py
+    - score_email() now takes an optional AttachmentAnalysisResult.
+      When present, uses _check_attachment_report_indicators which emits
+      separate hits for:
+        * Suspicious Attachment           weight 8
+        * Double-Extension Attachment      weight 7
+        * VirusTotal Malicious Attachment  weight 10
+        * VirusTotal Suspicious Attachment weight 6
+    - When the argument is None, falls back to the old extension-only
+      check on email_data.attachments — keeps existing 3-arg test calls
+      passing.
+
+CHANGED FILE
+  analyzer/reporter.py
+    - generate_pdf_report() gained optional `attachment_result` and
+      `integrity` parameters (default None for backward compatibility).
+    - Cover page: new "File Integrity" panel with MD5 / SHA-1 / SHA-256.
+    - New Attachments section: per-attachment row showing filename,
+      content_type, size, all three hashes, flag summary, and VT verdict
+      block (or "hash not in database" when VT returned not_found).
+
+
+===============================================================================
+PART 4 — Task 7: FastAPI service
+===============================================================================
+
+NEW FILES
+  api/__init__.py             — package marker
+  api/schemas.py              — Pydantic models for the public JSON contract
+  api/main.py                 — FastAPI application
+
+api/schemas.py
+    - HealthResponse, IntegritySchema, MetadataSchema, AuthItemSchema,
+      AuthSchema, URLSchema, AttachmentSchema, IndicatorSchema,
+      ScoringSchema, AnalysisResponse, JobAccepted, JobStatus.
+    - AnalysisResponse.from_engine(AnalysisResult) — adapter that
+      converts the engine's dataclasses into Pydantic. The API never
+      duplicates analysis logic.
+
+api/main.py
+    - GET /health                 — liveness check (status, time, version).
+    - POST /analyze               — accepts UploadFile; mode=sync returns
+      AnalysisResponse, mode=async enqueues a BackgroundTasks job and
+      returns JobAccepted.
+    - GET /analyze/jobs/{job_id}  — polls async job status; returns
+      JobStatus with status pending/running/completed/failed and the
+      embedded result when completed.
+    - 25 MB upload cap, 400 on parse failure, 413 on oversize uploads.
+    - In-memory job store with a threading.Lock — adequate for a single
+      worker; would be swapped for Redis/DB in production.
+
+CHANGED FILE
+  requirements.txt
+    - Added: fastapi>=0.110, uvicorn[standard]>=0.27, pydantic>=2.5,
+      python-multipart>=0.0.9 (required for UploadFile), httpx>=0.27
+      (TestClient).
+
+
+===============================================================================
+PART 5 — Sample email replacement (last user request)
+===============================================================================
+
+OBJECTIVE
+  Replace the contents of tests/samples/phishing.eml and clean_email.eml
+  with completely different scenarios while keeping the same outcomes
+  (one phishing → High/Critical, one clean → Low) AND keeping all tests
+  passing.
+
+NEW SAMPLE — tests/samples/phishing.eml
+  Theme: Amazon delivery-failure scam.
+    - From: "Amazon Shipping <notify@amaz0n-delivery.tk>"
+      (typosquatted domain, .tk TLD; triggers Display Name Spoofing for
+       the brand "amazon").
+    - Reply-To: confirm@quick-survey.ml (different domain → Reply-To
+      mismatch).
+    - Subject: starts with "ALERT:" + 24-hour ultimatum.
+    - Authentication-Results: spf=fail, dkim=fail, dmarc=fail.
+    - X-Mailer: "Sendblaster Pro 4.5" — known bulk-mailer trigger.
+    - X-Originating-IP: 203.0.113.42 (TEST-NET-3, classified as private
+      by Python's ipaddress → also flags Private Originating IP).
+    - URLs: bit.ly shortener, raw IP URL, .xyz suspicious TLD.
+    - HTML form posting to collect-info.xyz; anchor-text mismatch
+      (`<a href="...IP...">amazon.com/track</a>`).
+
+NEW SAMPLE — tests/samples/clean_email.eml
+  Theme: Stripe subscription receipt.
+    - From: "Stripe <receipts@stripe.com>".
+    - Reply-To: "Stripe Support <support@stripe.com>" (same domain).
+    - DKIM-Signature with d=stripe.com.
+    - Authentication-Results: spf=pass, dkim=pass, dmarc=pass.
+    - Plain text only (no HTML, no attachments).
+    - Body uses neutral language — no urgency/credential keywords.
+
+CHANGED FILE — tests/test_parser.py
+  Updated content-specific assertions to match the new themes:
+    - "paypa1.com" → "amaz0n-delivery.tk"
+    - "gmail-phish" → "quick-survey"
+    - "URGENT" → "ALERT"
+    - "PHPMailer" → "Sendblaster"
+    - "gmail.com" → "stripe.com" (clean tests)
+  All other test files (test_auth_checks.py, test_indicators.py,
+  test_url_extractor.py) needed no changes — their assertions check
+  enum values and risk levels rather than specific strings.
+
+VERIFICATION RESULTS
+  * pytest tests/ -v
+      ===> 70 passed in 2.64s
+
+  * Engine smoke test in --no-external mode:
+      phishing.eml   → risk=Critical, score=76, 13 indicators
+      clean_email.eml → risk=Low,      score=0,  0 indicators
+
+
+===============================================================================
+DELIVERABLES (FILE TREE OF CHANGES)
+===============================================================================
+
+  ADDED:
+    analyzer/settings.py
+    analyzer/engine.py
+    analyzer/attachments.py
+    api/__init__.py
+    api/main.py
+    api/schemas.py
+    README.md
+    WORK_LOG.txt          (this file)
+
+  MODIFIED:
+    analyzer/__init__.py
+    analyzer/parser.py
+    analyzer/auth_checks.py
+    analyzer/indicators.py
+    analyzer/reporter.py
+    analyzer/threat_intel.py
+    main.py
+    requirements.txt
+    tests/samples/phishing.eml      (full rewrite)
+    tests/samples/clean_email.eml   (full rewrite)
+    tests/test_parser.py
+
+
+===============================================================================
+GIT / PR
+===============================================================================
+
+  Commit:
+    8e4234c  Establish analyzer engine, attachment analysis, and FastAPI service
+
+  Branch pushed to:
+    https://github.com/HorbenkoDmytro/EmailAnalyzer/tree/claude/vigilant-babbage-ad091c
+
+  PR creation URL (manual — gh CLI not available locally):
+    https://github.com/HorbenkoDmytro/EmailAnalyzer/pull/new/claude/vigilant-babbage-ad091c
+
+
+===============================================================================
+WHAT TO RUN NEXT
+===============================================================================
+
+  # CLI, fully offline:
+  python main.py tests/samples/phishing.eml --no-external --json
+
+  # CLI with VT (requires VT_API_KEY in .env):
+  python main.py tests/samples/phishing.eml -o report.pdf
+
+  # Run the API:
+  uvicorn api.main:app --reload --port 8000
+  # then open http://localhost:8000/docs
+
+  # Run tests:
+  pytest -q

