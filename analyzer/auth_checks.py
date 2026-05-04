@@ -68,20 +68,23 @@ class AuthCheckResult:
     dmarc: DMARCResult
 
 
-def run_auth_checks(email_data: EmailData) -> AuthCheckResult:
+def run_auth_checks(email_data: EmailData, *, dns_enabled: bool = True) -> AuthCheckResult:
     """Run all three authentication checks against the parsed email.
 
-    Combines header inspection with live DNS queries where possible.
+    Combines header inspection with live DNS queries where allowed. When
+    ``dns_enabled`` is False the analyzer skips all DNS lookups, so it can
+    run on air-gapped systems or when --no-external is requested.
 
     Args:
         email_data: Parsed email from parser.py.
+        dns_enabled: If False, no DNS queries will be issued.
 
     Returns:
         AuthCheckResult containing SPF, DKIM, and DMARC results.
     """
-    spf = _check_spf(email_data)
+    spf = _check_spf(email_data, dns_enabled=dns_enabled)
     dkim = _check_dkim(email_data)
-    dmarc = _check_dmarc(email_data)
+    dmarc = _check_dmarc(email_data, dns_enabled=dns_enabled)
     return AuthCheckResult(spf=spf, dkim=dkim, dmarc=dmarc)
 
 
@@ -89,7 +92,7 @@ def run_auth_checks(email_data: EmailData) -> AuthCheckResult:
 # SPF
 # ---------------------------------------------------------------------------
 
-def _check_spf(email_data: EmailData) -> SPFResult:
+def _check_spf(email_data: EmailData, *, dns_enabled: bool = True) -> SPFResult:
     """Inspect SPF by reading the Authentication-Results header and querying DNS."""
     sender_domain = email_data.from_address.split("@")[-1] if "@" in email_data.from_address else ""
 
@@ -98,19 +101,27 @@ def _check_spf(email_data: EmailData) -> SPFResult:
     received_spf = email_data.received_spf or ""
 
     if header_status in (AuthStatus.PASS, AuthStatus.FAIL, AuthStatus.SOFTFAIL, AuthStatus.NEUTRAL):
-        record = _lookup_spf_record(sender_domain)
+        record = _lookup_spf_record(sender_domain) if dns_enabled else None
         detail = _build_spf_detail(header_status, sender_domain, received_spf)
         return SPFResult(status=header_status, sender_domain=sender_domain, record=record, detail=detail)
 
     # Fall back to Received-SPF header
     if received_spf:
         status = _parse_received_spf(received_spf)
-        record = _lookup_spf_record(sender_domain)
+        record = _lookup_spf_record(sender_domain) if dns_enabled else None
         return SPFResult(
             status=status,
             sender_domain=sender_domain,
             record=record,
             detail=f"Derived from Received-SPF header: {received_spf[:120]}",
+        )
+
+    if not dns_enabled:
+        return SPFResult(
+            status=AuthStatus.UNKNOWN,
+            sender_domain=sender_domain,
+            record=None,
+            detail="SPF status undetermined — header verdict missing and DNS lookups disabled.",
         )
 
     # Fall back to DNS lookup only (no verdict in headers)
@@ -245,13 +256,13 @@ def _extract_dkim_domain(dkim_header: Optional[str]) -> Optional[str]:
 # DMARC
 # ---------------------------------------------------------------------------
 
-def _check_dmarc(email_data: EmailData) -> DMARCResult:
+def _check_dmarc(email_data: EmailData, *, dns_enabled: bool = True) -> DMARCResult:
     """Check DMARC policy by querying _dmarc.<domain> DNS TXT record."""
     from_domain = email_data.from_address.split("@")[-1] if "@" in email_data.from_address else ""
 
     header_status = _parse_auth_results_for(email_data.authentication_results, "dmarc")
 
-    record = _lookup_dmarc_record(from_domain)
+    record = _lookup_dmarc_record(from_domain) if dns_enabled else None
     policy, pct = _parse_dmarc_record(record)
 
     if header_status == AuthStatus.PASS:
@@ -275,6 +286,15 @@ def _check_dmarc(email_data: EmailData) -> DMARCResult:
         )
 
     if not record:
+        if not dns_enabled:
+            return DMARCResult(
+                status=AuthStatus.UNKNOWN,
+                domain=from_domain,
+                policy=None,
+                pct=None,
+                record=None,
+                detail="DMARC status undetermined — header verdict missing and DNS lookups disabled.",
+            )
         return DMARCResult(
             status=AuthStatus.MISSING,
             domain=from_domain,
