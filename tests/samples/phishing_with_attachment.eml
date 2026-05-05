@@ -1,0 +1,53 @@
+Return-Path: <billing@invoices-due.tk>
+Received: from spoofed-relay.xyz (spoofed-relay.xyz [198.51.100.77])
+        by mx.example.com with SMTP id inv7788
+        for <recipient@example.com>; Tue, 05 May 2026 08:11:00 +0000
+Authentication-Results: mx.example.com;
+       dkim=fail (bad signature) header.i=@invoices-due.tk;
+       spf=fail (mx.example.com: domain of billing@invoices-due.tk does not designate 198.51.100.77 as permitted sender) smtp.mailfrom=billing@invoices-due.tk;
+       dmarc=fail (p=REJECT) header.from=invoices-due.tk
+Received-SPF: fail (mx.example.com: 198.51.100.77 not permitted by invoices-due.tk)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=invoices-due.tk; s=mail;
+        h=from:to:subject:date:message-id;
+        bh=invalidHash==;
+        b=brokenSig==
+X-Mailer: PHPMailer 6.5.0
+X-Originating-IP: 198.51.100.77
+MIME-Version: 1.0
+From: Accounting Department <billing@invoices-due.tk>
+To: recipient@example.com
+Reply-To: collect@payment-gateway.ml
+Subject: URGENT: Overdue invoice attached - immediate payment required
+Date: Tue, 05 May 2026 08:11:00 +0000
+Message-ID: <inv-7788@invoices-due.tk>
+Content-Type: multipart/mixed; boundary="==invoice_boundary=="
+
+--==invoice_boundary==
+Content-Type: text/plain; charset="UTF-8"
+
+Dear Customer,
+
+Please find attached your overdue invoice. Payment must be made
+within 24 hours to avoid late fees and account suspension.
+
+Open the attached invoice for full details and confirm your billing
+information at your earliest convenience.
+
+Accounting Department
+
+--==invoice_boundary==
+Content-Type: application/octet-stream; name="invoice.pdf.exe"
+Content-Disposition: attachment; filename="invoice.pdf.exe"
+Content-Transfer-Encoding: base64
+
+UEhJU0hJTkdfVEVTVF9QQVlMT0FEX3Yx
+
+--==invoice_boundary==
+Content-Type: application/vnd.ms-word.document.macroEnabled.12; name="report.docm"
+Content-Disposition: attachment; filename="report.docm"
+Content-Transfer-Encoding: base64
+
+UkVQT1JUX01BQ1JPX1BBWUxPQURfdjE=
+
+--==invoice_boundary==--

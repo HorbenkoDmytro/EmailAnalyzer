@@ -1,38 +1,39 @@
-Return-Path: <alice@gmail.com>
-Received: from mail-yw1-f201.google.com (mail-yw1-f201.google.com [209.85.128.201])
-        by mx.example.com with ESMTPS id abc123
-        for <bob@example.com>; Thu, 20 Feb 2026 10:00:00 -0500
+Return-Path: <bounces+receipt@stripe.com>
+Received: from mail-stripe-out.stripe.com (mail-stripe-out.stripe.com [54.240.18.42])
+        by mx.example.com with ESMTPS id rcpt007abc
+        for <customer@example.com>; Mon, 04 May 2026 09:15:00 +0000
 Authentication-Results: mx.example.com;
-       dkim=pass header.i=@gmail.com header.s=20210112 header.b=abcXYZ;
-       spf=pass (mx.example.com: domain of alice@gmail.com designates 209.85.128.201 as permitted sender) smtp.mailfrom=alice@gmail.com;
-       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com
+       dkim=pass header.i=@stripe.com header.s=20230101 header.b=validSig;
+       spf=pass (mx.example.com: domain of bounces+receipt@stripe.com designates 54.240.18.42 as permitted sender) smtp.mailfrom=bounces+receipt@stripe.com;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=stripe.com
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=gmail.com; s=20210112;
+        d=stripe.com; s=20230101;
         h=from:to:subject:date:message-id;
-        bh=abc123def456=;
-        b=abcXYZ123/validDKIMsignature==
-Received-SPF: pass (mx.example.com: domain of alice@gmail.com designates 209.85.128.201 as permitted sender)
-        receiver=mx.example.com; client-ip=209.85.128.201;
-        envelope-from=<alice@gmail.com>
+        bh=validBodyHash=;
+        b=signedCorrectly==
+Received-SPF: pass (mx.example.com: domain of bounces+receipt@stripe.com designates 54.240.18.42 as permitted sender)
+        receiver=mx.example.com; client-ip=54.240.18.42;
+        envelope-from=<bounces+receipt@stripe.com>
 MIME-Version: 1.0
-From: Alice Johnson <alice@gmail.com>
-To: Bob Smith <bob@example.com>
-Reply-To: Alice Johnson <alice@gmail.com>
-Subject: Meeting notes from today
-Date: Thu, 20 Feb 2026 10:00:00 -0500
-Message-ID: <CABcDeFgHiJkLmN@mail.gmail.com>
+From: Stripe <receipts@stripe.com>
+To: Customer <customer@example.com>
+Reply-To: Stripe Support <support@stripe.com>
+Subject: Receipt for your subscription renewal
+Date: Mon, 04 May 2026 09:15:00 +0000
+Message-ID: <rcpt-2026-05-04-XYZ@stripe.com>
 Content-Type: text/plain; charset="UTF-8"
 
-Hi Bob,
+Hi there,
 
-Just wanted to share the notes from today's team meeting. Everything went well
-and we covered the Q1 roadmap items.
+Thank you for your continued subscription. Your monthly plan was
+renewed successfully on May 4th, 2026. The receipt is available in
+your dashboard whenever you want to download a copy.
 
-Let me know if you have any questions!
+Plan: Standard, billed monthly
+Next charge: June 4th, 2026
 
-Best,
-Alice
+If you have any questions about this charge, just reply to this
+email and our team will be happy to help.
 
---
-Alice Johnson | Product Manager
-alice@gmail.com
+Thanks,
+The Stripe team

@@ -13,18 +13,18 @@ class TestParsePhishingEmail:
         self.data = parse_email_file(SAMPLES / "phishing.eml")
 
     def test_from_address_extracted(self):
-        assert "paypa1.com" in self.data.from_address
+        assert "amaz0n-delivery.tk" in self.data.from_address
 
     def test_reply_to_extracted(self):
         assert self.data.reply_to is not None
-        assert "gmail-phish" in self.data.reply_to
+        assert "quick-survey" in self.data.reply_to
 
     def test_subject_extracted(self):
-        assert "URGENT" in self.data.subject
+        assert "ALERT" in self.data.subject
 
     def test_x_mailer_extracted(self):
         assert self.data.x_mailer is not None
-        assert "PHPMailer" in self.data.x_mailer
+        assert "Sendblaster" in self.data.x_mailer
 
     def test_x_originating_ip_extracted(self):
         assert self.data.x_originating_ip is not None
@@ -36,8 +36,8 @@ class TestParsePhishingEmail:
         assert "form" in self.data.body_html.lower()
 
     def test_dkim_signature_extracted(self):
-        # Phishing email has a failing DKIM sig
-        assert self.data.dkim_signature is not None or True  # May be absent
+        # Phishing email has a (failing) DKIM signature header
+        assert self.data.dkim_signature is not None
 
     def test_received_chain_is_list(self):
         assert isinstance(self.data.received_chain, list)
@@ -48,11 +48,11 @@ class TestParseCleanEmail:
         self.data = parse_email_file(SAMPLES / "clean_email.eml")
 
     def test_from_address(self):
-        assert "gmail.com" in self.data.from_address
+        assert "stripe.com" in self.data.from_address
 
     def test_reply_to_matches_from(self):
         if self.data.reply_to:
-            assert "gmail.com" in self.data.reply_to
+            assert "stripe.com" in self.data.reply_to
 
     def test_authentication_results_present(self):
         assert self.data.authentication_results is not None

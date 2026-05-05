@@ -1,0 +1,56 @@
+Return-Path: <sarah.chen@acmecorp.com>
+Received: from mail-out.acmecorp.com (mail-out.acmecorp.com [203.0.113.10])
+        by mx.example.com with ESMTPS id pl9911
+        for <team@acmecorp.com>; Tue, 05 May 2026 09:00:00 +0000
+Authentication-Results: mx.example.com;
+       dkim=pass header.i=@acmecorp.com header.s=2024 header.b=validSig;
+       spf=pass (mx.example.com: domain of sarah.chen@acmecorp.com designates 203.0.113.10 as permitted sender) smtp.mailfrom=sarah.chen@acmecorp.com;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=acmecorp.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=acmecorp.com; s=2024;
+        h=from:to:subject:date:message-id;
+        bh=goodBodyHash=;
+        b=goodSignature==
+Received-SPF: pass (mx.example.com: domain of sarah.chen@acmecorp.com designates 203.0.113.10 as permitted sender)
+        receiver=mx.example.com; client-ip=203.0.113.10;
+        envelope-from=<sarah.chen@acmecorp.com>
+MIME-Version: 1.0
+From: Sarah Chen <sarah.chen@acmecorp.com>
+To: Team <team@acmecorp.com>
+Reply-To: Sarah Chen <sarah.chen@acmecorp.com>
+Subject: Q2 planning materials - agenda and receipt scan
+Date: Tue, 05 May 2026 09:00:00 +0000
+Message-ID: <q2-plan-2026@acmecorp.com>
+Content-Type: multipart/mixed; boundary="==planning_boundary=="
+
+--==planning_boundary==
+Content-Type: text/plain; charset="UTF-8"
+
+Hi team,
+
+Sharing two items ahead of tomorrow's Q2 planning session:
+
+1. The agenda for the meeting (PDF).
+2. A scanned receipt for the venue deposit, for reference.
+
+No action needed before the meeting - just wanted to give everyone
+a chance to read through the agenda beforehand.
+
+See you all tomorrow,
+Sarah
+
+--==planning_boundary==
+Content-Type: application/pdf; name="meeting-agenda.pdf"
+Content-Disposition: attachment; filename="meeting-agenda.pdf"
+Content-Transfer-Encoding: base64
+
+QUdFTkRBX0RPQ1VNRU5UX1BBWUxPQURfdjE=
+
+--==planning_boundary==
+Content-Type: image/png; name="expense-receipt.png"
+Content-Disposition: attachment; filename="expense-receipt.png"
+Content-Transfer-Encoding: base64
+
+UkVDRUlQVF9JTUFHRV9QQVlMT0FEX3Yx
+
+--==planning_boundary==--
